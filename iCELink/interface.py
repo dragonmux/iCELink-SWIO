@@ -3,6 +3,7 @@ from torii import Elaboratable, Module
 from torii.build.plat import Platform
 from torii.lib.stdio.serial import AsyncSerial
 from .ardulink import ArdulinkProtocol
+from .swio import SWIO
 
 class iCELinkInterface(Elaboratable):
 	def elaborate(self, platform: Platform) -> Module:
@@ -12,6 +13,7 @@ class iCELinkInterface(Elaboratable):
 			divisor = divisor, data_bits = 8, parity = 'none', pins = platform.request('uart', 0)
 		)
 		m.submodules.protocol = protocol = ArdulinkProtocol()
+		m.submodules.swio = swio = SWIO(platform.request('swio', 0))
 
 		m.d.comb += [
 			# RX interface
@@ -22,5 +24,13 @@ class iCELinkInterface(Elaboratable):
 			uart.tx.data.eq(protocol.sendData),
 			protocol.sendReady.eq(uart.tx.rdy),
 			uart.tx.ack.eq(protocol.sendStart),
+			# Downstream interface
+			swio.reg.eq(protocol.reg),
+			protocol.dataRead.eq(swio.dataRead),
+			swio.dataWrite.eq(protocol.dataWrite),
+			swio.startRead.eq(protocol.startRead),
+			swio.startWrite.eq(protocol.startWrite),
+			protocol.ready.eq(swio.ready),
+			protocol.done.eq(swio.done),
 		]
 		return m
