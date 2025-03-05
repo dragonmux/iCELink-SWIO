@@ -46,6 +46,7 @@ class SWIO(Elaboratable):
 		bit = Signal()
 		# Control signals for the bit FSM
 		bitStart = Signal()
+		bitStop = Signal()
 		bitFinish = Signal()
 		# Current bit in the current value being output
 		bitCounter = Signal(range(33))
@@ -106,6 +107,8 @@ class SWIO(Elaboratable):
 				# If we need to start transmitting a bit
 				with m.If(bitStart):
 					m.next = 'SETUP'
+				with m.Elif(bitStop):
+					m.next = 'STOP'
 			with m.State('SETUP'):
 				# Load the bit period counter according to the value of the bit to send
 				with m.If(bit):
@@ -128,6 +131,16 @@ class SWIO(Elaboratable):
 					]
 					m.next = 'WAIT_MARK'
 			with m.State('WAIT_MARK'):
+				# Wait for the bit period to reach 0
+				with m.If(bitPeriod == 0):
+					# Signal that the bit is complete
+					m.d.comb += bitFinish.eq(1)
+					m.next = 'IDLE'
+			with m.State('STOP'):
+				# Set up to run a stop bit (10T bus idle)
+				m.d.sync += bitPeriod.eq(10)
+				m.next = 'WAIT_STOP'
+			with m.State('WAIT_STOP'):
 				# Wait for the bit period to reach 0
 				with m.If(bitPeriod == 0):
 					# Signal that the bit is complete
@@ -191,7 +204,8 @@ class SWIO(Elaboratable):
 			with m.State('WRITE_VALUE'):
 				# Set up sending each bit in turn, waiting for it to complete
 				with m.If(bitCounter == 32):
-					# We've sent all the data bits for this operation
+					# We've sent all the data bits for this operation, so request a stop bit
+					m.d.comb += bitStop.eq(1)
 					m.next = 'STOP'
 				with m.Else():
 					m.d.sync += [
@@ -206,12 +220,8 @@ class SWIO(Elaboratable):
 					m.d.sync += bitCounter.inc()
 					m.next = 'WRITE_VALUE'
 			with m.State('STOP'):
-				# Send a stop bit (10T)
-				m.d.sync += bitPeriod.eq(10)
-				m.next = 'WAIT_STOP'
-			with m.State('WAIT_STOP'):
-				# Wait for the bit period to reach 0
-				with m.If(bitPeriod == 0):
+				# Wait for the stop bit to be completed
+				with m.If(bitFinish):
 					# Signal up that we're done, and go back to idle
 					m.d.comb += self.done.eq(1)
 					m.next = 'IDLE'
