@@ -156,6 +156,36 @@ class SWIO(Elaboratable):
 					m.next = 'SEND_REGISTER'
 			with m.State('SEND_REGISTER'):
 				# Set up sending each bit in turn, waiting for it to complete
+				with m.If(bitCounter == 8):
+					# We've sent all the bits in the register value, send the W/~R bit indicating if
+					# this is a write (1) or a read (0)
+					m.d.sync += bit.eq(operation == Operation.write)
+					m.next = 'WAIT_READ_WRITE_BIT'
+				with m.Else():
+					m.d.sync += [
+						bit.eq(self.reg[6]),
+						self.reg.eq(self.reg.shift_left(1)),
+					]
+					m.next = 'WAIT_SEND_REGISTER'
+				m.d.comb += bitStart.eq(1)
+			with m.State('WAIT_SEND_REGISTER'):
+				# Wait for the current bit to finish being transmitted
+				with m.If(bitFinish):
+					m.next = 'SEND_REGISTER'
+			with m.State('WAIT_READ_WRITE_BIT'):
+				# Wait for the WRITE/~READ bit to finish being transmitted
+				with m.If(bitFinish):
+					# Reset the bit counter so we start on the first bit of the value
+					m.d.sync += bitCounter.eq(0)
+					# If we're in a read operation, then start reading bits off the bus
+					with m.If(operation == Operation.read):
+						m.next = 'READ_VALUE'
+					# Else if we're in a write operation, then start writing bits onto the bus
+					with m.Elif(operation == Operation.write):
+						m.next = 'WRITE_VALUE'
+			with m.State('READ_VALUE'):
+				pass
+			with m.State('WRITE_VALUE'):
 				pass
 
 		return m

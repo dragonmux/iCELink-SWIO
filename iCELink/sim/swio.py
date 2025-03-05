@@ -27,6 +27,31 @@ class SWIOTestCase(ToriiTestCase):
 	domains = (('sync', 12e6), )
 	platform = Platform()
 
+	def checkSWIOBit(self, bit: int):
+		# Precondition: bus idle
+		self.assertEqual((yield swio.o), 0)
+		self.assertEqual((yield swio.oe), 0)
+		# Check that a bit is properly asserted onto the bus
+		yield
+		self.assertEqual((yield swio.o), 0)
+		self.assertEqual((yield swio.oe), 1)
+		if bit == 1:
+			# Wait 2T save for one cycle
+			yield from self.wait_for((2 / 8e6) - (1 / 12e6))
+		else:
+			# Wait 8T save for one cycle
+			yield from self.wait_for((8 / 8e6) - (1 / 12e6))
+		self.assertEqual((yield swio.o), 0)
+		self.assertEqual((yield swio.oe), 1)
+		# Check that the bit gets deassserted from the bus
+		yield
+		self.assertEqual((yield swio.o), 0)
+		self.assertEqual((yield swio.oe), 0)
+		# Wait 4T save for one cycle
+		yield from self.wait_for((4 / 8e6) - (1 / 12e6))
+		self.assertEqual((yield swio.o), 0)
+		self.assertEqual((yield swio.oe), 0)
+
 	@ToriiTestCase.simulation
 	@ToriiTestCase.sync_domain(domain = 'sync')
 	def testRegisterWrite(self):
@@ -59,7 +84,7 @@ class SWIOTestCase(ToriiTestCase):
 		self.assertEqual((yield swio.o), 0)
 		self.assertEqual((yield swio.oe), 0)
 		# Start the register write request
-		yield dut.reg.eq(0x55)
+		yield dut.reg.eq(0xa5)
 		yield dut.dataWrite.eq(0xaaca15aa)
 		yield
 		self.assertEqual((yield dut.done), 0)
@@ -68,22 +93,12 @@ class SWIOTestCase(ToriiTestCase):
 		yield
 		yield
 		yield
-		self.assertEqual((yield swio.o), 0)
-		self.assertEqual((yield swio.oe), 0)
-		# Check that the start bit gets asserted onto the bus
-		yield
-		self.assertEqual((yield swio.o), 0)
-		self.assertEqual((yield swio.oe), 1)
-		# Wait 2T save for one cycle
-		yield from self.wait_for((2 / 8e6) - (1 / 12e6))
-		self.assertEqual((yield swio.o), 0)
-		self.assertEqual((yield swio.oe), 1)
-		# Check that the start bit gets deassserted from the bus
-		yield
-		self.assertEqual((yield swio.o), 0)
-		self.assertEqual((yield swio.oe), 0)
-		# Wait 4T save for one cycle
-		yield from self.wait_for((4 / 8e6) - (1 / 12e6))
-		self.assertEqual((yield swio.o), 0)
-		self.assertEqual((yield swio.oe), 0)
-		yield
+		# Check that the start bit occurs properly
+		yield from self.checkSWIOBit(1)
+		value = 0xa5
+		for index in range(7):
+			# Figure out what the value of the next bit is, and check it's asserted onto the bus properly
+			bit = ((value << index) >> 6) & 1
+			yield from self.checkSWIOBit(bit)
+		# Check that the write bit gets asserted onto the bus
+		yield from self.checkSWIOBit(1)
