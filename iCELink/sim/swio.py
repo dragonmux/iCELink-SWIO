@@ -109,3 +109,27 @@ class SWIOTestCase(ToriiTestCase):
 			yield from self.checkSWIOBit(bit)
 		# Check that the write bit gets asserted onto the bus
 		yield from self.checkSWIOBit(1)
+		value = 0xaaca15aa
+		for index in range(32):
+			# Figure out what the value of the next bit is, and check it's asserted onto the bus properly
+			bit = ((value << index) >> 31) & 1
+			yield from self.checkSWIOBit(bit)
+		# Check that we're in bus idle (conditions for a stop bit)
+		yield
+		self.assertEqual((yield swio.o), 0)
+		self.assertEqual((yield swio.oe), 0)
+		# Wait 10T save for one cycle
+		yield from self.wait_for((10 / 8e6) - (1 / 12e6))
+		self.assertEqual((yield dut.done), 0)
+		self.assertEqual((yield swio.o), 0)
+		self.assertEqual((yield swio.oe), 0)
+		# Check that the transaction completes properly
+		yield
+		self.assertEqual((yield dut.done), 1)
+		self.assertEqual((yield swio.o), 0)
+		self.assertEqual((yield swio.oe), 0)
+		yield
+		self.assertEqual((yield dut.done), 0)
+		self.assertEqual((yield swio.o), 0)
+		self.assertEqual((yield swio.oe), 0)
+		yield from self.step(10)
