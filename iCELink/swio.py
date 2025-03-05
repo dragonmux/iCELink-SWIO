@@ -44,6 +44,8 @@ class SWIO(Elaboratable):
 		bitPeriod = Signal(range(64))
 		# Current bit value being output
 		bit = Signal()
+		# Data register for the chunk being sent
+		data = Signal(32)
 		# Control signals for the bit FSM
 		bitStart = Signal()
 		bitStop = Signal()
@@ -162,6 +164,8 @@ class SWIO(Elaboratable):
 				m.d.sync += [
 					bit.eq(1),
 					bitCounter.eq(0),
+					# Mirror the register address for ease of shifting out
+					data.eq(self.reg[::-1]),
 				]
 				m.d.comb += bitStart.eq(1)
 				m.next = 'WAIT_START'
@@ -178,8 +182,8 @@ class SWIO(Elaboratable):
 					m.next = 'WAIT_READ_WRITE_BIT'
 				with m.Else():
 					m.d.sync += [
-						bit.eq(self.reg[6]),
-						self.reg.eq(self.reg.shift_left(1)),
+						bit.eq(data[0]),
+						data.eq(data.shift_right(1)),
 					]
 					m.next = 'WAIT_SEND_REGISTER'
 				m.d.comb += bitStart.eq(1)
@@ -198,6 +202,7 @@ class SWIO(Elaboratable):
 						m.next = 'READ_VALUE'
 					# Else if we're in a write operation, then start writing bits onto the bus
 					with m.Elif(operation == Operation.write):
+						m.d.sync += data.eq(self.dataWrite[::-1])
 						m.next = 'WRITE_VALUE'
 			with m.State('READ_VALUE'):
 				pass
@@ -209,8 +214,8 @@ class SWIO(Elaboratable):
 					m.next = 'STOP'
 				with m.Else():
 					m.d.sync += [
-						bit.eq(self.dataWrite[31]),
-						self.dataWrite.eq(self.dataWrite.shift_left(1)),
+						bit.eq(data[0]),
+						data.eq(data.shift_right(1)),
 					]
 					m.d.comb += bitStart.eq(1)
 					m.next = 'WAIT_WRITE_VALUE'
