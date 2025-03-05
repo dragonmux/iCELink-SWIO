@@ -17,7 +17,7 @@ class SWIO(Elaboratable):
 	def __init__(self, swio: Pin):
 		super().__init__()
 
-		self.reg = Signal(8)
+		self.reg = Signal(7)
 		self.dataRead = Signal(32)
 		self.dataWrite = Signal(32)
 		self.startRead = Signal()
