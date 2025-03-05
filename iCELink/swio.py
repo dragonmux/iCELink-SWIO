@@ -48,7 +48,7 @@ class SWIO(Elaboratable):
 		bitStart = Signal()
 		bitFinish = Signal()
 		# Current bit in the current value being output
-		bitCounter = Signal(range(32))
+		bitCounter = Signal(range(33))
 
 		# 1kHz timer for counting delays
 		delayDuration = int(platform.default_clk_frequency // 1e3)
@@ -189,6 +189,30 @@ class SWIO(Elaboratable):
 			with m.State('READ_VALUE'):
 				pass
 			with m.State('WRITE_VALUE'):
-				pass
-
+				# Set up sending each bit in turn, waiting for it to complete
+				with m.If(bitCounter == 32):
+					# We've sent all the data bits for this operation
+					m.next = 'STOP'
+				with m.Else():
+					m.d.sync += [
+						bit.eq(self.dataWrite[31]),
+						self.dataWrite.eq(self.dataWrite.shift_left(1)),
+					]
+					m.d.comb += bitStart.eq(1)
+					m.next = 'WAIT_WRITE_VALUE'
+			with m.State('WAIT_WRITE_VALUE'):
+				# Wait for the current bit to finish being transmitted
+				with m.If(bitFinish):
+					m.d.sync += bitCounter.inc()
+					m.next = 'WRITE_VALUE'
+			with m.State('STOP'):
+				# Send a stop bit (10T)
+				m.d.sync += bitPeriod.eq(10)
+				m.next = 'WAIT_STOP'
+			with m.State('WAIT_STOP'):
+				# Wait for the bit period to reach 0
+				with m.If(bitPeriod == 0):
+					# Signal up that we're done, and go back to idle
+					m.d.comb += self.done.eq(1)
+					m.next = 'IDLE'
 		return m
