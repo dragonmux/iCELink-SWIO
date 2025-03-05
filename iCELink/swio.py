@@ -158,7 +158,7 @@ class SWIO(Elaboratable):
 					m.next = 'SEND_REGISTER'
 			with m.State('SEND_REGISTER'):
 				# Set up sending each bit in turn, waiting for it to complete
-				with m.If(bitCounter == 8):
+				with m.If(bitCounter == 7):
 					# We've sent all the bits in the register value, send the W/~R bit indicating if
 					# this is a write (1) or a read (0)
 					m.d.sync += bit.eq(operation == Operation.write)
@@ -173,6 +173,7 @@ class SWIO(Elaboratable):
 			with m.State('WAIT_SEND_REGISTER'):
 				# Wait for the current bit to finish being transmitted
 				with m.If(bitFinish):
+					m.d.sync += bitCounter.inc()
 					m.next = 'SEND_REGISTER'
 			with m.State('WAIT_READ_WRITE_BIT'):
 				# Wait for the WRITE/~READ bit to finish being transmitted
