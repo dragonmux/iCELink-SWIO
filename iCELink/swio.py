@@ -34,8 +34,9 @@ class SWIO(Elaboratable):
 		# The operation to perform on the register requested
 		operation = Signal(Operation)
 		# 8MHz timer for counting out bits
-		bitDuration = int(platform.default_clk_frequency // 8e6)
-		bitTimer = Signal(range(bitDuration), reset = bitDuration - 1)
+		baseFrequency = int(platform.default_clk_frequency // 1e6) # 12MHz
+		bitFrequency = 8 # MHz
+		bitTimer = Signal(range(baseFrequency + bitFrequency))
 		# We use normal mode clocking here - bits are defined by an 8MHz clock frequency
 		# A '1' is given by a space time of 1-4 periods, and a mark time of 1-16
 		# A '0' is given by a space time of 6-64 periods, and a mark time of 1-16
@@ -67,13 +68,14 @@ class SWIO(Elaboratable):
 
 		# Simple delay block - feed in the delay amount in bitPeriod and this will run till that becomes zero
 		with m.If(bitPeriod != 0):
-			with m.If(bitTimer == 0):
+			# This logic is taken from libAudio's emulator clock manager to allow
+			# the correct handling of the frequency beating for two close values
+			m.d.sync += bitTimer.eq(bitTimer + bitFrequency)
+			with m.If(baseFrequency - bitTimer < bitFrequency):
 				m.d.sync += [
-					bitTimer.eq(bitTimer.reset),
+					bitTimer.eq(bitTimer - baseFrequency),
 					bitPeriod.dec(),
 				]
-			with m.Else():
-				m.d.sync += bitTimer.dec()
 
 		with m.FSM(name = 'bit'):
 			with m.State('RESET'):
@@ -144,9 +146,9 @@ class SWIO(Elaboratable):
 				# Set up a start bit, and reset the bit counter to the start of the register bits
 				m.d.sync += [
 					bit.eq(1),
-					bitStart.eq(1),
 					bitCounter.eq(0),
 				]
+				m.d.comb += bitStart.eq(1)
 				m.next = 'WAIT_START'
 			with m.State('WAIT_START'):
 				# Wait for the start bit to finish being transmitted

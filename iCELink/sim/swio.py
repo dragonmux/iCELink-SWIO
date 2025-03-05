@@ -70,6 +70,20 @@ class SWIOTestCase(ToriiTestCase):
 		yield
 		self.assertEqual((yield swio.o), 0)
 		self.assertEqual((yield swio.oe), 0)
+		# Check that the start bit gets asserted onto the bus
 		yield
 		self.assertEqual((yield swio.o), 0)
 		self.assertEqual((yield swio.oe), 1)
+		# Wait 2T save for one cycle
+		yield from self.wait_for((2 / 8e6) - (1 / 12e6))
+		self.assertEqual((yield swio.o), 0)
+		self.assertEqual((yield swio.oe), 1)
+		# Check that the start bit gets deassserted from the bus
+		yield
+		self.assertEqual((yield swio.o), 0)
+		self.assertEqual((yield swio.oe), 0)
+		# Wait 4T save for one cycle
+		yield from self.wait_for((4 / 8e6) - (1 / 12e6))
+		self.assertEqual((yield swio.o), 0)
+		self.assertEqual((yield swio.oe), 0)
+		yield
