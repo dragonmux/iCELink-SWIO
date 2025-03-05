@@ -105,16 +105,18 @@ class SWIO(Elaboratable):
 			with m.State('IDLE'):
 				# If we need to start transmitting a bit
 				with m.If(bitStart):
-					# Load the bit period counter according to the value of the bit to send
-					with m.If(bit):
-						# Use 2T for '1'
-						m.d.sync += bitPeriod.eq(2)
-					with m.Else():
-						# Use 8T for '0'
-						m.d.sync += bitPeriod.eq(8)
-					# Set SWIO as an output (we maintain it low on swio.o)
-					m.d.sync += swio.oe.eq(1)
-					m.next = 'WAIT_SPACE'
+					m.next = 'SETUP'
+			with m.State('SETUP'):
+				# Load the bit period counter according to the value of the bit to send
+				with m.If(bit):
+					# Use 2T for '1'
+					m.d.sync += bitPeriod.eq(2)
+				with m.Else():
+					# Use 8T for '0'
+					m.d.sync += bitPeriod.eq(8)
+				# Set SWIO as an output (we maintain it low on swio.o)
+				m.d.sync += swio.oe.eq(1)
+				m.next = 'WAIT_SPACE'
 			with m.State('WAIT_SPACE'):
 				# Wait for the bit period to reach 0
 				with m.If(bitPeriod == 0):

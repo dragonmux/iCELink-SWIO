@@ -31,6 +31,10 @@ class SWIOTestCase(ToriiTestCase):
 		# Precondition: bus idle
 		self.assertEqual((yield swio.o), 0)
 		self.assertEqual((yield swio.oe), 0)
+		# SETUP phase
+		yield
+		self.assertEqual((yield swio.o), 0)
+		self.assertEqual((yield swio.oe), 0)
 		# Check that a bit is properly asserted onto the bus
 		yield
 		self.assertEqual((yield swio.o), 0)
@@ -49,6 +53,10 @@ class SWIOTestCase(ToriiTestCase):
 		self.assertEqual((yield swio.oe), 0)
 		# Wait 4T save for one cycle
 		yield from self.wait_for((4 / 8e6) - (1 / 12e6))
+		self.assertEqual((yield swio.o), 0)
+		self.assertEqual((yield swio.oe), 0)
+		# IDLE phase
+		yield
 		self.assertEqual((yield swio.o), 0)
 		self.assertEqual((yield swio.oe), 0)
 
@@ -90,7 +98,6 @@ class SWIOTestCase(ToriiTestCase):
 		self.assertEqual((yield dut.done), 0)
 		yield dut.startWrite.eq(1)
 		# Wait for the transaction to start
-		yield
 		yield
 		yield
 		# Check that the start bit occurs properly
