@@ -91,9 +91,9 @@ class SWIOBitReader(Elaboratable):
 			with m.State('FINISH'):
 				# Determine the bit value from the period count achieved
 				with m.If(bitPeriod <= 4): # 4T can be either a slightly long '1' or a slightly short '0'.. *shrug*!
-					m.d.sync += self.bit.eq(0)
-				with m.Else():
 					m.d.sync += self.bit.eq(1)
+				with m.Else():
+					m.d.sync += self.bit.eq(0)
 				m.next = 'WAIT_MARK'
 			with m.State('WAIT_MARK'):
 				# Wait for the bit period to reach 0
