@@ -94,8 +94,9 @@ class ArdulinkProtocolTestCase(ToriiTestCase):
 			self.assertEqual((yield uart.tx.o), 1)
 			yield from self.wait_for(1 / 115200)
 
-	def sendBytes(self, data: bytes):
-		for byte in data:
+	def sendBytes(self, data: bytes, *, waitForStop: bool = True):
+		bytes = len(data)
+		for idx, byte in enumerate(data):
 			# Do a start bit
 			yield uart.rx.i.eq(0)
 			yield from self.wait_for(1 / 115200)
@@ -107,7 +108,53 @@ class ArdulinkProtocolTestCase(ToriiTestCase):
 				yield from self.wait_for(1 / 115200)
 			# Do a stop bit
 			yield uart.rx.i.eq(1)
-			yield from self.wait_for(1 / 115200)
+			if waitForStop or idx != bytes - 1:
+				yield from self.wait_for(1 / 115200)
+
+	def swioCheckBit(self, bit: int):
+		# Grab the DUT for the IOB'd SWIO signal
+		dut = self.dut
+		# Wait for SWIO to go low
+		yield from self.wait_until_low(dut.swio)
+		if bit == 1:
+			# Wait 2T save for one cycle
+			yield from self.wait_for((2 / 8e6) - (1 / 12e6))
+		else:
+			# Wait 8T save for one cycle
+			yield from self.wait_for((8 / 8e6) - (1 / 12e6))
+		# Validate SWIO goes back high
+		self.assertEqual((yield dut.swio), 0)
+		yield
+		self.assertEqual((yield dut.swio), 1)
+		# Wait 4T save for one cycle
+		yield from self.wait_for((4 / 8e6) - (1 / 12e6))
+		self.assertEqual((yield dut.swio), 1)
+		# Should be back to idle now
+		yield
+		self.assertEqual((yield dut.swio), 1)
+
+	def swioWrite(self, address: int, data: int):
+		# Grab the DUT for the IOB'd SWIO signal
+		dut = self.dut
+		# Check we get a start bit
+		yield from self.swioCheckBit(1)
+		for index in range(7):
+			# Figure out what the value of the next bit in the register address is
+			bit = ((address << index) >> 6) & 1
+			# Check that makes it to the bus correctly
+			yield from self.swioCheckBit(bit)
+		# Check that the write bit gets asserted onto the bus
+		yield from self.swioCheckBit(1)
+		for index in range(32):
+			# Figure out what the value of the next bit in the register data is
+			bit = ((data << index) >> 31) & 1
+			# Check that makes it to the bus correctly
+			yield from self.swioCheckBit(bit)
+		# Check the SWIO controller does a proper stop bit
+		self.assertEqual((yield dut.swio), 1)
+		# Wait 20T save for one cycle
+		yield from self.wait_for((20 / 8e6) - (1 / 12e6))
+		self.assertEqual((yield dut.swio), 1)
 
 	@ToriiTestCase.simulation
 	@ToriiTestCase.sync_domain(domain = 'sync')
@@ -121,4 +168,13 @@ class ArdulinkProtocolTestCase(ToriiTestCase):
 		# Do a short delay and then ask the Ardulink protocol to self-test
 		yield from self.step(4)
 		yield from self.sendBytes(b'?')
+		yield from self.readBytes(b'+')
+		# Do a short delay and then ask the Ardulink protocol to write register 7e with a value
+		yield from self.step(4)
+		yield from self.sendBytes(b'w')
+		yield from self.sendBytes(0x7e.to_bytes(1))
+		yield from self.sendBytes(0x5aa50400.to_bytes(4, byteorder = 'little'), waitForStop = False)
+		# Watch SWIO do the transaction
+		yield from self.swioWrite(0x7e, 0x5aa50400)
+		# Check for the post-transaction ack from the protocol controller
 		yield from self.readBytes(b'+')
