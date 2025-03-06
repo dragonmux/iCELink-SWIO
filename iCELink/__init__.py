@@ -48,7 +48,9 @@ def cli() -> int:
 	elif args.action == 'build':
 		platform = ICEBreakerPlatform()
 		platform.add_resources((
-			Resource('swio', 0, Pins('pmod_1:1', dir = 'io'), Attrs(IO_STANDARD = 'SB_LVCMOS')),
+			Resource(
+				'swio', 0, Pins( 'pmod_1:1', dir = 'io'), Attrs(IO_STANDARD = 'SB_LVCMOS', PULLUP = 1)
+			),
 		))
 		try:
 			platform.build(iCELinkInterface(), name = 'iCELink', pnrSeed = args.seed)
