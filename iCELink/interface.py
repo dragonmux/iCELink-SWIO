@@ -18,8 +18,8 @@ class iCELinkInterface(Elaboratable):
 		m.d.comb += [
 			# RX interface
 			protocol.recvData.eq(uart.rx.data),
-			protocol.recvReady.eq(uart.rx.rdy),
-			uart.rx.ack.eq(protocol.recvDone),
+			uart.rx.ack.eq(protocol.recvReady),
+			protocol.recvDone.eq(uart.rx.rdy),
 			# TX interface
 			uart.tx.data.eq(protocol.sendData),
 			protocol.sendReady.eq(uart.tx.rdy),

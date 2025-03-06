@@ -42,6 +42,10 @@ class ArdulinkProtocol(Elaboratable):
 		operation = Signal(RegisterOperation)
 		valueByte = Signal(range(5))
 
+		m.d.comb += [
+			self.recvReady.eq(0),
+		]
+
 		# Protocol FSM
 		with m.FSM(name = 'protocol'):
 			with m.State('INIT'):
@@ -55,9 +59,9 @@ class ArdulinkProtocol(Elaboratable):
 					# And wait for a command byte to come down the pipe
 					m.next = 'WAIT_COMMAND'
 			with m.State('WAIT_COMMAND'):
+				m.d.comb += self.recvReady.eq(1)
 				# Wait for a byte to become available on the UART
-				with m.If(self.recvReady):
-					m.d.comb += self.recvDone.eq(1)
+				with m.If(self.recvDone):
 					m.next = 'DISPATCH'
 			with m.State('DISPATCH'):
 				# Figure out what to do about the command
@@ -84,9 +88,9 @@ class ArdulinkProtocol(Elaboratable):
 					with m.Default():
 						m.next = 'WAIT_COMMAND'
 			with m.State('RECV_REG_NUMBER'):
+				m.d.comb += self.recvReady.eq(1)
 				# Wait for a byte to become available on the UART
-				with m.If(self.recvReady):
-					m.d.comb += self.recvDone.eq(1)
+				with m.If(self.recvDone):
 					m.next = 'RECV_REGISTER'
 			with m.State('RECV_REGISTER'):
 				# Grab the register to operate on
@@ -118,9 +122,9 @@ class ArdulinkProtocol(Elaboratable):
 				with m.Elif(valueByte == 4):
 					m.next = 'WAIT_COMMAND'
 			with m.State('RECV_WRITE_VALUE'):
+				m.d.comb += self.recvReady.eq(1)
 				# Wait for the UART to become ready
-				with m.If(self.recvReady):
-					m.d.comb += self.recvDone.eq(1)
+				with m.If(self.recvDone):
 					m.next = 'GRAB_WRITE_VALUE'
 				# If we've received the last byte then we're done
 				with m.Elif(valueByte == 4):
