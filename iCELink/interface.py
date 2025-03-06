@@ -13,6 +13,7 @@ class iCELinkInterface(Elaboratable):
 			divisor = divisor, data_bits = 8, parity = 'none', pins = platform.request('uart', 0)
 		)
 		m.submodules.protocol = protocol = ArdulinkProtocol()
+		# NB: SWIO requires a strong pullup (it's an OD protocol!) of around 1kohm to work
 		m.submodules.swio = swio = SWIO(platform.request('swio', 0))
 
 		m.d.comb += [
