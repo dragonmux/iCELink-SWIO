@@ -89,6 +89,7 @@ class SWIOBitWriter(Elaboratable):
 				# If we need to start transmitting a bit
 				with m.If(self.start):
 					m.next = 'SETUP'
+				# If we need to do a stop bit
 				with m.Elif(self.stop):
 					m.next = 'STOP'
 			with m.State('SETUP'):

@@ -4,6 +4,7 @@ from torii.build.plat import Platform
 from torii.lib.io import Pin
 from enum import IntEnum, auto, unique
 from .bitWriter import SWIOBitWriter
+from .bitReader import SWIOBitReader
 
 __all__ = (
 	'SWIO',
@@ -38,6 +39,7 @@ class SWIO(Elaboratable):
 		bitCounter = Signal(range(33))
 
 		m.submodules.bitWriter = bitWriter = SWIOBitWriter(self._swio)
+		m.submodules.bitReader = bitReader = SWIOBitReader(self._swio)
 
 		with m.FSM(name = 'swio'):
 			with m.State('IDLE'):
@@ -95,7 +97,31 @@ class SWIO(Elaboratable):
 						m.d.sync += data.eq(self.dataWrite[::-1])
 						m.next = 'WRITE_VALUE'
 			with m.State('READ_VALUE'):
-				pass
+				# Set up sending a dummy '1' bit for each bit to read in turn, and timing
+				# how many T SDIO stays low for to determine the bit value elicited from the target
+				with m.If(bitCounter == 32):
+					# If we've received all the data bits for this operation, do a stop bit
+					m.d.comb += bitWriter.stop.eq(1)
+					# Copy the resulting data to the output data register
+					m.d.sync += self.dataRead.eq(data)
+					m.next = 'STOP'
+				with m.Else():
+					# Set up a dummy '1' bit write
+					m.d.sync += bitWriter.bit.eq(1)
+					m.d.comb += bitWriter.start.eq(1)
+					# And set up to time the low duration
+					m.d.comb += bitReader.start.eq(1)
+					m.next = 'WAIT_READ_VALUE'
+			with m.State('WAIT_READ_VALUE'):
+				# Wait until the current bit has been timed
+				with m.If(bitReader.finish):
+					# Extract the resulting bit value into the local shift register and increment the bit counter
+					m.d.sync += [
+						data.eq(data.shift_left(1)),
+						data[0].eq(bitReader.bit),
+						bitCounter.inc(),
+					]
+					m.next = 'READ_VALUE'
 			with m.State('WRITE_VALUE'):
 				# Set up sending each bit in turn, waiting for it to complete
 				with m.If(bitCounter == 32):
