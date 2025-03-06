@@ -87,17 +87,17 @@ class ArdulinkProtocol(Elaboratable):
 				# Wait for a byte to become available on the UART
 				with m.If(self.recvReady):
 					m.d.comb += self.recvDone.eq(1)
-					# Dispatch to the next phase of the operation
-					with m.If(operation == RegisterOperation.read):
-						m.next = 'RECV_REGISTER'
-					with m.Elif(operation == RegisterOperation.write):
-						m.d.sync += valueByte.eq(0)
-						m.next = 'RECV_WRITE_VALUE'
+					m.next = 'RECV_REGISTER'
 			with m.State('RECV_REGISTER'):
-				# Grab the register to read from, and dispatch the request
+				# Grab the register to operate on
 				m.d.sync += self.reg.eq(self.recvData)
-				m.d.comb += self.startRead.eq(1)
-				m.next = 'WAIT_READ'
+				# Dispatch to the next phase of the operation
+				with m.If(operation == RegisterOperation.read):
+					m.d.comb += self.startRead.eq(1)
+					m.next = 'WAIT_READ'
+				with m.Elif(operation == RegisterOperation.write):
+					m.d.sync += valueByte.eq(0)
+					m.next = 'RECV_WRITE_VALUE'
 			with m.State('WAIT_READ'):
 				# Wait for the operation to complete
 				with m.If(self.done):
