@@ -11,15 +11,14 @@ class ArdulinkProtocolTestCase(ToriiTestCase):
 
 	def sendByte(self, value: bytes):
 		dut = self.dut
-		yield dut.recvReady.eq(1)
-		self.assertEqual((yield dut.recvDone), 0)
-		yield
-		self.assertEqual((yield dut.recvDone), 1)
-		yield dut.recvReady.eq(0)
+		self.assertEqual((yield dut.recvReady), 1)
 		yield dut.recvData.eq(ord(value))
+		yield dut.recvDone.eq(1)
 		yield
-		self.assertEqual((yield dut.recvDone), 0)
-		yield dut.recvData.eq(0)
+		self.assertEqual((yield dut.recvReady), 1)
+		yield dut.recvDone.eq(0)
+		yield
+		self.assertEqual((yield dut.recvReady), 0)
 
 	def sendBytes(self, data: bytes):
 		for byte in data:
