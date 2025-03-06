@@ -68,14 +68,15 @@ class SWIOTestCase(ToriiTestCase):
 		self.assertEqual((yield swio.oe), 0)
 		yield swio.i.eq(0)
 		yield Settle()
+		self.assertEqual((yield swio.oe), 1)
 		if bit == 1:
 			# Wait 2T save for one cycle
 			yield from self.wait_for((2 / 8e6) - (1 / 12e6))
-			self.assertEqual((yield swio.oe), 1)
 		else:
 			# Wait 8T save for one cycle
 			yield from self.wait_for((8 / 8e6) - (1 / 12e6))
-			self.assertEqual((yield swio.oe), 0)
+		yield Settle()
+		self.assertEqual((yield swio.oe), 0)
 		# Deassert the bit from the bus
 		yield
 		yield swio.i.eq(1)
