@@ -31,12 +31,17 @@ class ArdulinkProtocolTestCase(ToriiTestCase):
 		self.assertEqual((yield dut.sendStart), 0)
 		yield dut.sendReady.eq(1)
 		yield
+		yield dut.sendReady.eq(0)
 		# And check that we get the correct ACK byte out
 		self.assertEqual((yield dut.sendData), ord(value))
 		self.assertEqual((yield dut.sendStart), 1)
 		yield
 		self.assertEqual((yield dut.sendStart), 0)
-		yield dut.sendReady.eq(0)
+
+	def recvBytes(self, data: bytes):
+		for byte in data:
+			yield from self.recvByte(byte.to_bytes(1))
+			yield
 
 	@ToriiTestCase.simulation
 	@ToriiTestCase.sync_domain(domain = 'sync')
@@ -89,4 +94,23 @@ class ArdulinkProtocolTestCase(ToriiTestCase):
 		yield dut.done.eq(0)
 		# Check for the ack byte back
 		yield from self.recvByte(b'+')
+		yield
+		# Set up to send in the READ_REG command
+		yield from self.sendByte(b'r')
+		yield
+		yield from self.sendByte(0x35.to_bytes(1))
+		# Now the controller has the request parameters, make sure it starts a read transaction
+		self.assertEqual((yield dut.startRead), 1)
+		yield
+		self.assertEqual((yield dut.reg), 0x35)
+		self.assertEqual((yield dut.startRead), 0)
+		yield from self.step(4)
+		# After a short delay, tell it the transaction's done
+		yield dut.dataRead.eq(0xfeedaa55)
+		yield dut.done.eq(1)
+		yield
+		yield dut.done.eq(0)
+		yield
+		# Read back the result of the read
+		yield from self.recvBytes(0xfeedaa55.to_bytes(4, byteorder = 'little'))
 		yield
