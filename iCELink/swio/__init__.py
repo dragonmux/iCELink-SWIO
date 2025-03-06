@@ -107,8 +107,7 @@ class SWIO(Elaboratable):
 					m.next = 'STOP'
 				with m.Else():
 					# Set up a dummy '1' bit write
-					m.d.sync += bitWriter.bit.eq(1)
-					m.d.comb += bitWriter.start.eq(1)
+					m.d.comb += bitWriter.triggerRead.eq(1)
 					# And set up to time the low duration
 					m.d.comb += bitReader.start.eq(1)
 					m.next = 'WAIT_READ_VALUE'

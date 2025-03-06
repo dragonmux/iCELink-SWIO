@@ -15,6 +15,7 @@ class SWIOBitWriter(Elaboratable):
 		self.ready = Signal()
 		self.start = Signal()
 		self.stop = Signal()
+		self.triggerRead = Signal()
 		self.finish = Signal()
 
 		self._swio = swio
@@ -92,6 +93,9 @@ class SWIOBitWriter(Elaboratable):
 				# If we need to do a stop bit
 				with m.Elif(self.stop):
 					m.next = 'STOP'
+				# If we need to trigger a read
+				with m.Elif(self.triggerRead):
+					m.next = 'READ'
 			with m.State('SETUP'):
 				# Load the bit period counter according to the value of the bit to send
 				with m.If(self.bit):
@@ -118,6 +122,7 @@ class SWIOBitWriter(Elaboratable):
 				with m.If(bitPeriod == 0):
 					# Signal that the bit is complete
 					m.d.comb += self.finish.eq(1)
+					m.d.sync += swio.oe.eq(0),
 					m.next = 'IDLE'
 			with m.State('STOP'):
 				# Set up to run a stop bit (20T bus idle)
@@ -129,5 +134,13 @@ class SWIOBitWriter(Elaboratable):
 					# Signal that the bit is complete
 					m.d.comb += self.finish.eq(1)
 					m.next = 'IDLE'
+			with m.State('READ'):
+				# Set up 1 bit period of low to trigger the target to output a bit
+				m.d.sync += [
+					bitPeriod.eq(1),
+					swio.oe.eq(1),
+				]
+				# And then have the engine finish up as soon as that finishes
+				m.next = 'WAIT_MARK'
 
 		return m
