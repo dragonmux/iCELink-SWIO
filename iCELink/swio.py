@@ -139,8 +139,8 @@ class SWIO(Elaboratable):
 					m.d.comb += bitFinish.eq(1)
 					m.next = 'IDLE'
 			with m.State('STOP'):
-				# Set up to run a stop bit (10T bus idle)
-				m.d.sync += bitPeriod.eq(10)
+				# Set up to run a stop bit (20T bus idle)
+				m.d.sync += bitPeriod.eq(20)
 				m.next = 'WAIT_STOP'
 			with m.State('WAIT_STOP'):
 				# Wait for the bit period to reach 0

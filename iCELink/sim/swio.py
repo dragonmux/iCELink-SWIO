@@ -118,8 +118,8 @@ class SWIOTestCase(ToriiTestCase):
 		yield
 		self.assertEqual((yield swio.o), 0)
 		self.assertEqual((yield swio.oe), 0)
-		# Wait 10T save for one cycle
-		yield from self.wait_for((10 / 8e6) - (1 / 12e6))
+		# Wait 20T save for one cycle
+		yield from self.wait_for((20 / 8e6) - (1 / 12e6))
 		self.assertEqual((yield dut.done), 0)
 		self.assertEqual((yield swio.o), 0)
 		self.assertEqual((yield swio.oe), 0)
