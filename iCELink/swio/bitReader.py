@@ -80,18 +80,20 @@ class SWIOBitReader(Elaboratable):
 				with m.If((swio.i == 0) & (bitPeriod == 96)):
 					# We reached the error threshold, so set error
 					m.d.sync += self.error.eq(1)
+					# Use a 4T mark period
+					m.d.sync += delayPeriod.eq(4)
 					m.next = 'FINISH'
 				# And similarly if we reach a high, stop
 				with m.Elif(swio.i):
+					# Use a 4T mark period
+					m.d.sync += delayPeriod.eq(4)
 					m.next = 'FINISH'
 			with m.State('FINISH'):
 				# Determine the bit value from the period count achieved
-				with m.If(bitPeriod < 4): # 4T can be either a slightly long '1' or a slightly short '0'.. *shrug*!
+				with m.If(bitPeriod <= 4): # 4T can be either a slightly long '1' or a slightly short '0'.. *shrug*!
 					m.d.sync += self.bit.eq(0)
 				with m.Else():
 					m.d.sync += self.bit.eq(1)
-				# Use a 4T mark period
-				m.d.sync += delayPeriod.eq(4)
 				m.next = 'WAIT_MARK'
 			with m.State('WAIT_MARK'):
 				# Wait for the bit period to reach 0
