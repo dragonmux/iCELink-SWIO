@@ -33,4 +33,17 @@ class iCELinkInterface(Elaboratable):
 			protocol.ready.eq(swio.ready),
 			protocol.done.eq(swio.done),
 		]
+
+		# Use the LEDs as a simple transaction indicator
+		greenLED = platform.request('led_g', 0)
+		with m.If(protocol.startRead):
+			m.d.sync += greenLED.eq(1)
+		with m.Elif(swio.done):
+			m.d.sync += greenLED.eq(0)
+
+		redLed = platform.request('led_r', 0)
+		with m.If(protocol.startWrite):
+			m.d.sync += redLed.eq(1)
+		with m.Elif(swio.done):
+			m.d.sync += redLed.eq(0)
 		return m
